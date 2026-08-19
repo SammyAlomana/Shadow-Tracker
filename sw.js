@@ -1,4 +1,4 @@
-const CACHE='shadow-tracker-v2';
+const CACHE='shadow-tracker-v3';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));
@@ -9,10 +9,11 @@ self.addEventListener('activate',e=>{
 });
 self.addEventListener('fetch',e=>{
   const u=new URL(e.request.url);
-  // Le tile Google non vengono mai messe in cache (vietato dai termini d'uso):
-  // senza rete l'app passa da sola alla mappa schematica.
-  if(u.hostname.includes('googleapis.com')||u.hostname.includes('gstatic.com')||u.hostname.includes('google.com')) return;
   if(e.request.method!=='GET') return;
+  // Tile/API di Google e query Overpass (OpenStreetMap): sempre in rete, mai in cache —
+  // se manca la connessione l'app passa da sola alla mappa schematica / disabilita il rilevamento edifici.
+  if(u.hostname.includes('googleapis.com')||u.hostname.includes('gstatic.com')||u.hostname.includes('google.com')
+     ||u.hostname.includes('overpass-api.de')) return;
   e.respondWith(
     caches.match(e.request).then(hit=> hit || fetch(e.request).then(res=>{
       const copy=res.clone();
