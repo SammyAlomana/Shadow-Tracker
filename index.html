@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f2233">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Shadow Tracker</title>
+<style>
+:root{
+  --bg:#0f2233; --panel:#16324a; --panel2:#1d4160; --line:#2b5474;
+  --txt:#eef6fb; --muted:#9fbdd2; --sun:#ffc233; --shade:#4aa8d8; --hot:#ff7a59;
+  --ok:#42d29d;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  overflow:hidden;overscroll-behavior:none;
+}
+button{font-family:inherit;border:0;cursor:pointer;color:inherit}
+#app{display:flex;flex-direction:column;height:100dvh;max-width:560px;margin:0 auto;position:relative}
+
+/* ---------- top bar ---------- */
+#top{display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;background:var(--bg)}
+#top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.3px;flex:1}
+#top h1 span{color:var(--sun)}
+.pill{font-size:11px;padding:4px 9px;border-radius:999px;background:var(--panel2);color:var(--muted);font-weight:700}
+.pill.on{background:rgba(66,210,157,.18);color:var(--ok)}
+.pill.off{background:rgba(255,122,89,.18);color:var(--hot)}
+#gear{background:var(--panel2);width:32px;height:32px;border-radius:10px;font-size:15px}
+
+/* ---------- mode switch ---------- */
+#modes{display:flex;gap:6px;padding:0 12px 10px}
+#modes button{flex:1;padding:9px;border-radius:12px;background:var(--panel);color:var(--muted);font-weight:700;font-size:13px}
+#modes button.act{background:var(--sun);color:#3a2600}
+
+/* ---------- map ---------- */
+#mapwrap{position:relative;flex:1;min-height:230px;margin:0 12px;border-radius:18px;overflow:hidden;background:#12283c;border:1px solid var(--line)}
+#gmap{position:absolute;inset:0}
+#cv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#cv.grab{pointer-events:auto;cursor:crosshair}
+#maptools{position:absolute;left:8px;top:8px;display:flex;flex-direction:column;gap:6px;z-index:5}
+#maptools button{width:38px;height:38px;border-radius:12px;background:rgba(15,34,51,.82);backdrop-filter:blur(6px);font-size:16px;border:1px solid var(--line)}
+#maptools button.act{background:var(--sun);color:#3a2600;border-color:var(--sun)}
+#banner{position:absolute;right:8px;top:8px;z-index:5;background:rgba(15,34,51,.85);backdrop-filter:blur(6px);
+  border:1px solid var(--line);border-radius:12px;padding:6px 10px;font-size:11px;color:var(--muted);max-width:56%;line-height:1.35}
+#placehint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:6;background:var(--sun);color:#3a2600;
+  font-weight:800;font-size:12px;padding:8px 14px;border-radius:999px;display:none}
+
+/* ---------- sheet ---------- */
+#sheet{background:var(--panel);border-radius:20px 20px 0 0;margin-top:10px;padding:12px 12px calc(12px + var(--safe-b));
+  max-height:52dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;box-shadow:0 -10px 30px rgba(0,0,0,.3)}
+h2{font-size:11px;text-transform:uppercase;letter-spacing:1.1px;color:var(--muted);margin:0 0 8px}
+.q{font-size:15px;font-weight:700;line-height:1.35;margin-bottom:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:8px 13px;border-radius:999px;background:var(--panel2);font-size:13px;font-weight:700;color:var(--muted);border:1px solid transparent}
+.chip.act{background:var(--sun);color:#3a2600}
+.big{width:100%;padding:14px;border-radius:15px;background:var(--sun);color:#3a2600;font-weight:800;font-size:15px;margin-top:12px}
+.big.sec{background:var(--panel2);color:var(--txt)}
+#answer{margin-top:12px;border-radius:16px;padding:14px;background:linear-gradient(135deg,#1c4a6b,#17364f);border:1px solid var(--line);display:none}
+#answer.show{display:block}
+.arrow{display:flex;align-items:center;gap:13px}
+.arrowbox{width:60px;height:60px;border-radius:50%;background:rgba(74,168,216,.16);display:grid;place-items:center;flex:0 0 auto}
+.arrowbox svg{width:34px;height:34px}
+.aTitle{font-size:19px;font-weight:800;line-height:1.2}
+.aSub{font-size:13px;color:var(--muted);margin-top:3px;line-height:1.35}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}
+.kpi{background:rgba(255,255,255,.06);border-radius:11px;padding:8px}
+.kpi b{display:block;font-size:15px}
+.kpi small{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}
+.divide{height:1px;background:var(--line);margin:14px 0}
+label{display:block;font-size:11px;color:var(--muted);margin:10px 0 4px}
+input[type=range]{width:100%;accent-color:var(--sun)}
+input[type=number],input[type=date],input[type=text]{width:100%;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);font-size:14px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.playrow{display:flex;align-items:center;gap:10px}
+.playrow button{width:40px;height:40px;border-radius:12px;background:var(--panel2);font-size:15px;flex:0 0 auto}
+.clock{font-variant-numeric:tabular-nums;font-weight:800;font-size:18px;min-width:60px;text-align:center}
+.obj{background:var(--panel2);border-radius:13px;padding:9px 10px;margin-top:8px;font-size:13px}
+.obj .hd{display:flex;justify-content:space-between;align-items:center;font-weight:700;margin-bottom:6px}
+.obj .hd button{color:var(--hot);font-size:16px;background:none;padding:0 4px}
+.obj .g{display:flex;gap:7px}.obj .g>div{flex:1}
+.obj small{font-size:9.5px;color:var(--muted)}
+.obj input{padding:6px;font-size:13px}
+.bar{height:24px;border-radius:8px;overflow:hidden;border:1px solid var(--line);margin-top:6px}
+.bar canvas{display:block;width:100%;height:24px}
+.ticks{position:relative;height:14px;font-size:9px;color:var(--muted);margin-top:2px}
+.ticks span{position:absolute;transform:translateX(-50%)}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:9px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.hide{display:none!important}
+
+/* ---------- modal ---------- */
+#modal{position:fixed;inset:0;background:rgba(4,12,20,.72);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+#modal.show{display:flex}
+#modal .box{background:var(--panel);border-radius:18px;padding:18px;max-width:420px;width:100%;max-height:84dvh;overflow:auto}
+#modal h3{margin:0 0 8px;font-size:16px}
+#modal p{font-size:12.5px;color:var(--muted);line-height:1.5}
+#modal a{color:var(--sun)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <h1>Shadow <span>Tracker</span></h1>
+    <span class="pill" id="net">•</span>
+    <button id="gear">⚙</button>
+  </div>
+
+  <div id="modes">
+    <button id="mSimple" class="act">Semplice</button>
+    <button id="mEdit">Editor</button>
+  </div>
+
+  <div id="mapwrap">
+    <div id="gmap"></div>
+    <canvas id="cv"></canvas>
+    <div id="maptools">
+      <button id="tLocate" title="La mia posizione">◎</button>
+      <button id="tEdit" title="Modifica sulla mappa">✏️</button>
+      <button id="tTrail" title="Scia oraria">🕒</button>
+    </div>
+    <div id="banner">Mappa schematica<br>Nord in alto</div>
+    <div id="placehint">Tocca la mappa per posizionare</div>
+  </div>
+
+  <div id="sheet">
+    <!-- ============ SIMPLE ============ -->
+    <div id="paneSimple">
+      <div class="q">Dove mi metto per avere ombra nelle prossime…</div>
+      <div class="chips" id="hourChips"></div>
+      <button class="big" id="findBtn">☂ Trova il posto all'ombra</button>
+
+      <div id="answer">
+        <div class="arrow">
+          <div class="arrowbox"><svg viewBox="0 0 100 100"><g id="arrowG"><path d="M50 8 L78 78 L50 62 L22 78 Z" fill="#4aa8d8"/></g></svg></div>
+          <div>
+            <div class="aTitle" id="aTitle">–</div>
+            <div class="aSub" id="aSub">–</div>
+          </div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><small>Ombra garantita</small><b id="kShade">–</b></div>
+          <div class="kpi"><small>Ora sei</small><b id="kNow">–</b></div>
+          <div class="kpi"><small>Sole a</small><b id="kElev">–</b></div>
+        </div>
+        <div class="note" id="aNote"></div>
+      </div>
+
+      <div class="divide"></div>
+      <h2>Cosa fa ombra qui</h2>
+      <div class="chips">
+        <span class="chip" data-add="tree">🌳 Albero</span>
+        <span class="chip" data-add="umbrella">⛱ Ombrellone</span>
+        <span class="chip" data-add="wall">🧱 Muro / edificio</span>
+      </div>
+      <p class="note" id="objCount">Nessun ostacolo: aggiungine almeno uno toccando una voce qui sopra e poi la mappa.</p>
+    </div>
+
+    <!-- ============ EDITOR ============ -->
+    <div id="paneEdit" class="hide">
+      <h2>Quando</h2>
+      <div class="playrow">
+        <button id="play">▶</button>
+        <input type="range" id="time" min="0" max="1439" step="5">
+        <div class="clock" id="clock">–</div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <div><label>Data</label><input type="date" id="date"></div>
+        <div><label>&nbsp;</label><button class="chip" id="nowBtn" style="width:100%;padding:9px">Adesso</button></div>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><small>Alba</small><b id="sunrise">–</b></div>
+        <div class="kpi"><small>Tramonto</small><b id="sunset">–</b></div>
+        <div class="kpi"><small>Ombra lunga</small><b id="ratio">–</b></div>
+      </div>
+
+      <div class="divide"></div>
+      <h2>Il punto scelto, oggi</h2>
+      <div class="bar"><canvas id="tl" height="24"></canvas></div>
+      <div class="ticks" id="ticks"></div>
+      <div class="note" id="verdict">–</div>
+
+      <div class="divide"></div>
+      <h2>Ostacoli</h2>
+      <div class="chips">
+        <span class="chip" data-add="tree">🌳 Albero</span>
+        <span class="chip" data-add="umbrella">⛱ Ombrellone</span>
+        <span class="chip" data-add="wall">🧱 Muro</span>
+      </div>
+      <div id="objlist"></div>
+      <div class="legend">
+        <span><i style="background:#2b3f52"></i>Ombra ora</span>
+        <span><i style="background:#4aa8d8"></i>Scia oraria</span>
+        <span><i style="background:#ffc233"></i>Sole</span>
+        <span><i style="background:#42d29d"></i>Posto migliore</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal"><div class="box" id="modalBox"></div></div>
+
+<script>
+/* ==================================================================
+   1. SOLE  (algoritmo NOAA, tutto in locale: funziona offline)
+   ================================================================== */
+const RAD=Math.PI/180;
+function solar(date,lat,lon){
+  const yS=Date.UTC(date.getUTCFullYear(),0,1);
+  const dU=Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate());
+  const doy=Math.floor((dU-yS)/864e5)+1;
+  const hU=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
+  const g=2*Math.PI/365*(doy-1+(hU-12)/24);
+  const eq=229.18*(75e-6+.001868*Math.cos(g)-.032077*Math.sin(g)-.014615*Math.cos(2*g)-.040849*Math.sin(2*g));
+  const dec=.006918-.399912*Math.cos(g)+.070257*Math.sin(g)-.006758*Math.cos(2*g)
+           +.000907*Math.sin(2*g)-.002697*Math.cos(3*g)+.00148*Math.sin(3*g);
+  const ha=((hU*60+eq+4*lon)/4-180)*RAD, la=lat*RAD;
+  let cz=Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(ha);
+  cz=Math.max(-1,Math.min(1,cz));
+  const zen=Math.acos(cz), elev=90-zen/RAD;
+  let x=(Math.sin(la)*Math.cos(zen)-Math.sin(dec))/(Math.cos(la)*Math.sin(zen));
+  x=Math.max(-1,Math.min(1,x));
+  let az=180-Math.acos(x)/RAD; if(ha>0) az=360-az;
+  return {elev,az};
+}
+function sunTimes(date,lat,lon){
+  const yS=Date.UTC(date.getUTCFullYear(),0,1);
+  const dU=Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate());
+  const doy=Math.floor((dU-yS)/864e5)+1, g=2*Math.PI/365*(doy-1);
+  const eq=229.18*(75e-6+.001868*Math.cos(g)-.032077*Math.sin(g)-.014615*Math.cos(2*g)-.040849*Math.sin(2*g));
+  const dec=.006918-.399912*Math.cos(g)+.070257*Math.sin(g)-.006758*Math.cos(2*g)
+           +.000907*Math.sin(2*g)-.002697*Math.cos(3*g)+.00148*Math.sin(3*g);
+  const la=lat*RAD;
+  let c=(Math.cos(90.833*RAD)/(Math.cos(la)*Math.cos(dec)))-Math.tan(la)*Math.tan(dec);
+  if(c>1) return {rise:null,set:null};
+  if(c<-1) return {rise:0,set:1439};
+  const ha=Math.acos(c)/RAD;
+  const off=-new Date(date.getFullYear(),date.getMonth(),date.getDate(),12).getTimezoneOffset();
+  return {rise:(720-4*(lon+ha)-eq+off+1440)%1440, set:(720-4*(lon-ha)-eq+off+1440)%1440};
+}
+const hhmm=m=>{m=Math.round(m);return String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(Math.round(m)%60).padStart(2,'0')};
+
+/* ==================================================================
+   2. STATO
+   ================================================================== */
+const LS='shadowtracker.v2';
+const now=new Date();
+const S={
+  key: localStorage.getItem(LS+'.key')||'',
+  origin:{lat:41.9028,lon:12.4964},      // ancora geografica della scena
+  me:{x:0,y:0}, hasFix:false,
+  center:{x:0,y:0}, scale:12,            // px per metro (schematico)
+  y:now.getFullYear(),m:now.getMonth(),d:now.getDate(),
+  minutes:now.getHours()*60+now.getMinutes(),
+  objects:[], best:null, window:3,
+  mode:'simple', edit:false, trail:false, placing:null,
+  google:null, gmapReady:false
+};
+try{ const s=JSON.parse(localStorage.getItem(LS+'.scene')||'null');
+  if(s){ S.objects=s.objects||[]; S.origin=s.origin||S.origin; S.me=s.me||S.me; } }catch(e){}
+const save=()=>localStorage.setItem(LS+'.scene',JSON.stringify({objects:S.objects,origin:S.origin,me:S.me}));
+
+const M_LAT=110540, M_LON=lat=>111320*Math.cos(lat*RAD);
+const toM=(lat,lon)=>[(lon-S.origin.lon)*M_LON(S.origin.lat),(lat-S.origin.lat)*M_LAT];
+const toLL=(x,y)=>({lat:S.origin.lat+y/M_LAT, lng:S.origin.lon+x/M_LON(S.origin.lat)});
+const dateAt=m=>new Date(S.y,S.m,S.d,Math.floor(m/60),Math.round(m)%60);
+
+/* ==================================================================
+   3. GEOMETRIA DELLE OMBRE
+   ================================================================== */
+function shVec(elev,az,h){
+  if(elev<=1) return null;
+  const L=Math.min(h/Math.tan(elev*RAD),200), a=(az+180)%360;
+  return {dx:L*Math.sin(a*RAD), dy:L*Math.cos(a*RAD), L};
+}
+function hull(p){
+  p=p.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],up=[];
+  for(const q of p){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],q)<=0)lo.pop();lo.push(q);}
+  for(let i=p.length-1;i>=0;i--){const q=p[i];while(up.length>1&&cr(up[up.length-2],up[up.length-1],q)<=0)up.pop();up.push(q);}
+  lo.pop();up.pop();return lo.concat(up);
+}
+function geoms(elev,az){
+  const out=[];
+  for(const o of S.objects){
+    const v=shVec(elev,az,o.h); if(!v) continue;
+    if(o.type==='wall'){
+      const c=[[o.x-o.w/2,o.y-o.d/2],[o.x+o.w/2,o.y-o.d/2],[o.x+o.w/2,o.y+o.d/2],[o.x-o.w/2,o.y+o.d/2]];
+      out.push({kind:'poly',pts:hull(c.concat(c.map(p=>[p[0]+v.dx,p[1]+v.dy]))),tip:[o.x+v.dx,o.y+v.dy]});
+    } else {
+      out.push({kind:'caps',a:[o.x,o.y],b:[o.x+v.dx,o.y+v.dy],r:o.r,tip:[o.x+v.dx,o.y+v.dy]});
+    }
+  }
+  return out;
+}
+const inPoly=(px,py,pts)=>{let i2=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){const xi=pts[i][0],yi=pts[i][1],xj=pts[j][0],yj=pts[j][1];
+    if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi)) i2=!i2;} return i2;};
+function segD(px,py,a,b){const vx=b[0]-a[0],vy=b[1]-a[1],wx=px-a[0],wy=py-a[1],L=vx*vx+vy*vy;
+  let t=L>0?(wx*vx+wy*vy)/L:0;t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(a[0]+t*vx),py-(a[1]+t*vy));}
+const shaded=(px,py,gs)=>gs.some(g=>g.kind==='caps'?segD(px,py,g.a,g.b)<=g.r:inPoly(px,py,g.pts));
+
+/* stati del sole nella finestra richiesta */
+function windowStates(fromMin,hours,stepMin){
+  const out=[];
+  for(let m=fromMin;m<=fromMin+hours*60;m+=stepMin){
+    const s=solar(dateAt(m),S.origin.lat,S.origin.lon);
+    out.push({m,elev:s.elev,az:s.az,gs:s.elev>1?geoms(s.elev,s.az):[]});
+  }
+  return out;
+}
+/* ricerca del punto migliore: massima frazione d'ombra, poi vicinanza */
+function findBest(fromMin,hours){
+  const st=windowStates(fromMin,hours,15).filter(s=>s.elev>1);
+  if(!S.objects.length) return null;
+  if(!st.length) return {x:S.me.x,y:S.me.y,frac:1,night:true};
+  const R=30, step=1;
+  let best=null;
+  for(let dx=-R;dx<=R;dx+=step) for(let dy=-R;dy<=R;dy+=step){
+    const x=S.me.x+dx, y=S.me.y+dy, dist=Math.hypot(dx,dy);
+    if(dist>R) continue;
+    let blocked=false;
+    for(const o of S.objects) if(o.type==='wall' && Math.abs(x-o.x)<=o.w/2 && Math.abs(y-o.y)<=o.d/2) blocked=true;
+    if(blocked) continue;
+    let c=0; for(const s of st) if(shaded(x,y,s.gs)) c++;
+    const frac=c/st.length;
+    const score=frac*1000 - dist;
+    if(!best||score>best.score) best={x,y,frac,dist,score};
+  }
+  if(best) best.states=st;
+  return best;
+}
+/* quando cambia lo stato in un punto */
+function nextChange(px,py,fromMin){
+  let cur=null;
+  for(let m=fromMin;m<=fromMin+14*60;m+=5){
+    const s=solar(dateAt(m),S.origin.lat,S.origin.lon);
+    if(s.elev<=1) return cur===null?null:{m,sh:true,night:true};
+    const sh=shaded(px,py,geoms(s.elev,s.az));
+    if(cur===null) cur=sh; else if(sh!==cur) return {m,sh};
+  }
+  return null;
+}
+
+/* ==================================================================
+   4. MAPPA: Google se c'è rete + chiave, altrimenti schematica
+   ================================================================== */
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  const r=cv.getBoundingClientRect(); DPR=Math.min(devicePixelRatio||1,2);
+  cv.width=r.width*DPR; cv.height=r.height*DPR; W=r.width; H=r.height;
+  ctx.setTransform(DPR,0,0,DPR,0,0); draw();
+}
+addEventListener('resize',resize);
+
+const m2p=(x,y)=>[W/2+(x-S.center.x)*S.scale, H/2-(y-S.center.y)*S.scale];
+const p2m=(px,py)=>[S.center.x+(px-W/2)/S.scale, S.center.y-(py-H/2)/S.scale];
+
+function loadGoogle(){
+  if(!S.key||!navigator.onLine) return fallback('Mappa schematica'+(S.key?' — offline':' — nessuna chiave Google'));
+  const sc=document.createElement('script');
+  sc.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(S.key)+'&libraries=&loading=async&callback=__gmapInit';
+  sc.async=true; sc.onerror=()=>fallback('Google non raggiungibile — mappa schematica');
+  document.head.appendChild(sc);
+  setTimeout(()=>{ if(!S.gmapReady) fallback('Chiave Google non valida — mappa schematica'); },8000);
+}
+window.__gmapInit=function(){
+  const el=document.getElementById('gmap');
+  S.google=new google.maps.Map(el,{
+    center:{lat:S.origin.lat,lng:S.origin.lon}, zoom:19, mapTypeId:'hybrid',
+    tilt:0, heading:0, rotateControl:false, disableDefaultUI:true, gestureHandling:'greedy',
+    zoomControl:false, keyboardShortcuts:false, isFractionalZoomEnabled:true, maxZoom:22
+  });
+  S.gmapReady=true;
+  document.getElementById('banner').innerHTML='Google satellite<br>Nord in alto';
+  const sync=()=>{
+    const c=S.google.getCenter(), z=S.google.getZoom();
+    const mpp=156543.03392*Math.cos(c.lat()*RAD)/Math.pow(2,z);
+    S.scale=1/mpp;
+    const [cx,cy]=toM(c.lat(),c.lng()); S.center={x:cx,y:cy};
+    draw();
+  };
+  ['bounds_changed','zoom_changed','center_changed','idle'].forEach(e=>S.google.addListener(e,sync));
+  sync();
+};
+function fallback(msg){
+  S.gmapReady=false; S.google=null;
+  document.getElementById('gmap').style.background='linear-gradient(160deg,#173a52,#12283c)';
+  document.getElementById('banner').innerHTML=msg.replace(' — ','<br>');
+  S.scale=Math.max(6,Math.min(30,S.scale)); draw();
+}
+function recenter(){
+  if(S.google) S.google.panTo(toLL(S.me.x,S.me.y));
+  else { S.center={x:S.me.x,y:S.me.y}; draw(); }
+}
+
+/* ==================================================================
+   5. DISEGNO
+   ================================================================== */
+const TRAILC=['#ffc233','#ffa64d','#ff8f6b','#e08adf','#9d9bf2','#6fb6e8','#4aa8d8','#3f8fc4'];
+function draw(){
+  if(!W) return;
+  const dt=dateAt(S.minutes), s=solar(dt,S.origin.lat,S.origin.lon);
+  const night=s.elev<=1, gs=night?[]:geoms(s.elev,s.az);
+  ctx.clearRect(0,0,W,H);
+
+  if(!S.gmapReady){ // griglia schematica
+    ctx.strokeStyle='rgba(160,200,225,.13)'; ctx.lineWidth=1;
+    const step=S.scale>14?2:5;
+    const [ox,oy]=m2p(0,0);
+    for(let gx=ox%(step*S.scale); gx<W; gx+=step*S.scale){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(let gy=oy%(step*S.scale); gy<H; gy+=step*S.scale){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+  }
+
+  /* --- scia oraria: contorni ora per ora --- */
+  if(S.trail && !night){
+    const start=Math.ceil(S.minutes/60)*60;
+    const span=(S.mode==='simple'? S.window : 6);
+    for(let k=0;k<span;k++){
+      const m=start+k*60, sx=solar(dateAt(m),S.origin.lat,S.origin.lon);
+      if(sx.elev<=1) continue;
+      const g2=geoms(sx.elev,sx.az); if(!g2.length) continue;
+      const col=TRAILC[Math.min(k,TRAILC.length-1)];
+      ctx.strokeStyle=col; ctx.lineWidth=2; ctx.globalAlpha=.95-k*.07;
+      ctx.setLineDash([7,5]);
+      for(const g of g2) path(g), ctx.stroke();
+      ctx.setLineDash([]);
+      // etichetta sulla punta dell'ombra più lunga
+      let tip=null,bl=-1;
+      for(const g of g2){const d=Math.hypot(g.tip[0]-(g.a?g.a[0]:0),g.tip[1]-(g.a?g.a[1]:0)); if(d>bl){bl=d;tip=g.tip;}}
+      if(tip){
+        const p=m2p(tip[0],tip[1]);
+        if(p[0]>-40&&p[0]<W+40&&p[1]>-20&&p[1]<H+20){
+          const t=hhmm(m); ctx.font='700 11px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+          const w=ctx.measureText(t).width+12;
+          ctx.globalAlpha=1; ctx.fillStyle=col;
+          roundRect(p[0]-w/2,p[1]-9,w,18,9); ctx.fill();
+          ctx.fillStyle='#0f2233'; ctx.fillText(t,p[0],p[1]);
+        }
+      }
+      ctx.globalAlpha=1;
+    }
+  }
+
+  /* --- ombra adesso --- */
+  ctx.fillStyle='rgba(12,28,44,.55)';
+  for(const g of gs){ path(g); ctx.fill(); }
+
+  /* --- oggetti --- */
+  for(const o of S.objects){
+    const c=m2p(o.x,o.y);
+    if(o.type==='wall'){
+      const a=m2p(o.x-o.w/2,o.y+o.d/2);
+      ctx.fillStyle='rgba(201,160,106,.92)'; ctx.strokeStyle='#fff'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.rect(a[0],a[1],o.w*S.scale,o.d*S.scale); ctx.fill(); ctx.stroke();
+    } else if(o.type==='umbrella'){
+      ctx.beginPath(); ctx.arc(c[0],c[1],Math.max(6,o.r*S.scale),0,7);
+      ctx.fillStyle='rgba(255,122,89,.9)'; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(c[0],c[1],Math.max(6,o.r*S.scale),0,7);
+      ctx.fillStyle='rgba(63,158,88,.85)'; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.stroke();
+    }
+  }
+
+  /* --- posto migliore --- */
+  if(S.best){
+    const p=m2p(S.best.x,S.best.y), t=(Date.now()%1600)/1600;
+    ctx.beginPath(); ctx.arc(p[0],p[1],14+t*16,0,7);
+    ctx.strokeStyle='rgba(66,210,157,'+(0.75*(1-t))+')'; ctx.lineWidth=3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p[0],p[1],13,0,7); ctx.fillStyle='#42d29d'; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+    ctx.font='700 13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#0f2233'; ctx.fillText('☂',p[0],p[1]+1);
+  }
+
+  /* --- io --- */
+  const me=m2p(S.me.x,S.me.y);
+  ctx.beginPath(); ctx.arc(me[0],me[1],9,0,7);
+  ctx.fillStyle=shaded(S.me.x,S.me.y,gs)?'#4aa8d8':'#ff7a59'; ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.stroke();
+
+  /* --- direzione del sole --- */
+  if(!night){
+    const R=Math.min(W,H)/2-26, a=s.az*RAD;
+    const sx=W/2+R*Math.sin(a), sy=H/2-R*Math.cos(a);
+    ctx.beginPath(); ctx.arc(sx,sy,13,0,7); ctx.fillStyle='#ffc233'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=2; ctx.stroke();
+  }
+  if(S.best) requestAnimationFrame(draw);
+}
+function path(g){
+  ctx.beginPath();
+  if(g.kind==='caps'){
+    const a=m2p(g.a[0],g.a[1]),b=m2p(g.b[0],g.b[1]),r=Math.max(4,g.r*S.scale);
+    const an=Math.atan2(b[1]-a[1],b[0]-a[0]);
+    ctx.arc(a[0],a[1],r,an+Math.PI/2,an-Math.PI/2);
+    ctx.arc(b[0],b[1],r,an-Math.PI/2,an+Math.PI/2);
+  } else g.pts.forEach((p,i)=>{const q=m2p(p[0],p[1]); i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});
+  ctx.closePath();
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+/* ==================================================================
+   6. RISPOSTA SEMPLICE
+   ================================================================== */
+const DIRS=['nord','nord-est','est','sud-est','sud','sud-ovest','ovest','nord-ovest'];
+const $=id=>document.getElementById(id);
+function runFind(){
+  if(!S.objects.length){
+    $('answer').classList.remove('show');
+    toast('Aggiungi prima almeno un ostacolo: tocca 🌳, ⛱ o 🧱 e poi la mappa.');
+    return;
+  }
+  const b=findBest(S.minutes,S.window);
+  S.best=b;
+  const s=solar(dateAt(S.minutes),S.origin.lat,S.origin.lon);
+  const meShaded=shaded(S.me.x,S.me.y,s.elev>1?geoms(s.elev,s.az):[]);
+  const dist=Math.round(Math.hypot(b.x-S.me.x,b.y-S.me.y));
+  const brg=(Math.atan2(b.x-S.me.x,b.y-S.me.y)/RAD+360)%360;
+  $('arrowG').setAttribute('transform','rotate('+brg.toFixed(0)+' 50 50)');
+  const hoursShade=b.frac*S.window;
+  if(b.frac<0.15){
+    $('aTitle').textContent='Niente ombra qui vicino';
+    $('aSub').textContent='Nel raggio di 30 m nessun punto resta all\u2019ombra in questa fascia. Prova ad accorciare la finestra o segnare altri ostacoli.';
+  } else if(dist<=1){
+    $('aTitle').textContent='Sei già nel punto migliore';
+    $('aSub').textContent='Resta dove sei: è il posto con più ombra qui intorno.';
+  } else {
+    $('aTitle').textContent=dist+' m verso '+DIRS[Math.round(brg/45)%8];
+    $('aSub').textContent='Segui la freccia: il cerchio verde ☂ sulla mappa è il punto consigliato.';
+  }
+  $('kShade').textContent=(Math.floor(hoursShade)+'h'+String(Math.round((hoursShade%1)*60)).padStart(2,'0'));
+  $('kNow').textContent=s.elev<=1?'🌙 notte':(meShaded?'😎 ombra':'☀️ sole');
+  $('kElev').textContent=s.elev<=1?'—':Math.round(s.elev)+'°';
+  const nc=nextChange(S.me.x,S.me.y,S.minutes);
+  $('aNote').innerHTML = s.elev<=1 ? 'Sole sotto l\u2019orizzonte.' :
+    (nc? (nc.night?'Dove sei ora il sole tramonta alle <b>'+hhmm(nc.m)+'</b>.'
+        : 'Dove sei ora '+(nc.sh?'l\u2019ombra arriva':'il sole torna')+' alle <b>'+hhmm(nc.m)+'</b>.')
+       : 'Dove sei ora la situazione non cambia nelle prossime ore.');
+  $('answer').classList.add('show');
+  S.trail=true; $('tTrail').classList.add('act');
+  draw(); timeline();
+}
+function toast(msg){
+  const el=$('placehint'); el.textContent=msg; el.style.display='block';
+  clearTimeout(el._t); el._t=setTimeout(()=>{el.style.display='none';},2600);
+}
+
+/* ==================================================================
+   7. TIMELINE (editor)
+   ================================================================== */
+const tl=$('tl'), tctx=tl.getContext('2d');
+function timeline(){
+  const p=S.best||S.me;
+  const st=sunTimes(dateAt(720),S.origin.lat,S.origin.lon);
+  const from=st.rise==null?300:Math.max(0,st.rise-20), to=st.set==null?1200:Math.min(1439,st.set+20);
+  const w=tl.clientWidth||300; tl.width=w*2; tl.height=48; tctx.setTransform(2,0,0,2,0,0);
+  const N=Math.max(60,Math.floor(w/3)); tctx.clearRect(0,0,w,24);
+  let shadeMin=0;
+  for(let i=0;i<N;i++){
+    const m=from+(to-from)*i/N, s=solar(dateAt(m),S.origin.lat,S.origin.lon);
+    const sh=s.elev<=1?true:shaded(p.x,p.y,geoms(s.elev,s.az));
+    if(sh&&s.elev>1) shadeMin+=(to-from)/N;
+    tctx.fillStyle=s.elev<=1?'#3d5468':(sh?'#4aa8d8':'#ffc233');
+    tctx.fillRect(i*w/N,0,w/N+1,24);
+  }
+  const nx=((S.minutes-from)/(to-from))*w;
+  if(nx>=0&&nx<=w){tctx.fillStyle='#ff7a59';tctx.fillRect(nx-1.5,0,3,24);}
+  const tk=$('ticks'); tk.innerHTML='';
+  for(let h=Math.ceil(from/60);h<=Math.floor(to/60);h+=3){
+    const e=document.createElement('span'); e.style.left=(((h*60-from)/(to-from))*100)+'%';
+    e.textContent=h+':00'; tk.appendChild(e);
+  }
+  const s=solar(dateAt(S.minutes),S.origin.lat,S.origin.lon);
+  $('ratio').textContent=s.elev<=1?'—':(s.elev<3?'>20×':(1/Math.tan(s.elev*RAD)).toFixed(1)+'×');
+  $('sunrise').textContent=st.rise==null?'—':hhmm(st.rise);
+  $('sunset').textContent=st.set==null?'—':hhmm(st.set);
+  $('verdict').innerHTML=(S.best?'Punto consigliato ☂':'La tua posizione')+
+    ': <b>'+(shadeMin/60).toFixed(1)+' h</b> di ombra oggi.';
+}
+
+/* ==================================================================
+   8. UI
+   ================================================================== */
+/* finestra ore */
+[1,2,3,4].forEach(h=>{
+  const c=document.createElement('span'); c.className='chip'+(h===3?' act':''); c.textContent=h+(h===1?' ora':' ore');
+  c.onclick=()=>{S.window=h;[...$('hourChips').children].forEach(x=>x.classList.remove('act'));c.classList.add('act');
+    if($('answer').classList.contains('show')) runFind(); else draw();};
+  $('hourChips').appendChild(c);
+});
+$('findBtn').onclick=runFind;
+
+/* modalità */
+function setMode(m){
+  S.mode=m;
+  $('mSimple').classList.toggle('act',m==='simple');
+  $('mEdit').classList.toggle('act',m==='edit');
+  $('paneSimple').classList.toggle('hide',m!=='simple');
+  $('paneEdit').classList.toggle('hide',m!=='edit');
+  if(m==='edit'){ renderObjs(); timeline(); }
+  draw();
+}
+$('mSimple').onclick=()=>setMode('simple');
+$('mEdit').onclick=()=>setMode('edit');
+
+/* aggiungi oggetti (tap sulla mappa) */
+document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+  S.placing=b.dataset.add; S.edit=true; cv.classList.add('grab');
+  $('tEdit').classList.add('act');
+  $('placehint').textContent='Tocca la mappa per posizionare '+(S.placing==='tree'?'l\u2019albero':S.placing==='umbrella'?'l\u2019ombrellone':'il muro');
+  $('placehint').style.display='block';
+});
+const DEFAULTS={tree:{type:'tree',h:6,r:3},umbrella:{type:'umbrella',h:2.2,r:1.2},wall:{type:'wall',h:3,w:6,d:2}};
+
+/* strumenti mappa */
+$('tLocate').onclick=()=>locate(true);
+$('tEdit').onclick=()=>{S.edit=!S.edit;S.placing=null;cv.classList.toggle('grab',S.edit);
+  $('tEdit').classList.toggle('act',S.edit);$('placehint').style.display='none';
+  if(S.edit) toast('Trascina oggetti e la tua posizione'); };
+$('tTrail').onclick=()=>{S.trail=!S.trail;$('tTrail').classList.toggle('act',S.trail);draw();};
+
+/* interazione canvas */
+let drag=null;
+const evPos=e=>{const r=cv.getBoundingClientRect();return p2m(e.clientX-r.left,e.clientY-r.top);};
+cv.addEventListener('pointerdown',e=>{
+  const [x,y]=evPos(e);
+  if(S.placing){
+    const o=Object.assign({},DEFAULTS[S.placing],{x,y}); S.objects.push(o);
+    S.placing=null; $('placehint').style.display='none'; save(); renderObjs(); updCount();
+    if($('answer').classList.contains('show')) runFind(); else draw();
+    return;
+  }
+  if(!S.edit) return;
+  cv.setPointerCapture(e.pointerId);
+  if(Math.hypot(x-S.me.x,y-S.me.y)<2.5/Math.max(.4,S.scale/12)+1.5){drag={t:'me'};return;}
+  for(let i=S.objects.length-1;i>=0;i--){const o=S.objects[i];
+    const hit=o.type==='wall'?(Math.abs(x-o.x)<=o.w/2+.6&&Math.abs(y-o.y)<=o.d/2+.6):Math.hypot(x-o.x,y-o.y)<=o.r+.8;
+    if(hit){drag={t:'o',i,ox:x-o.x,oy:y-o.y};return;}}
+});
+cv.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  const [x,y]=evPos(e);
+  if(drag.t==='me'){S.me={x,y};} else {const o=S.objects[drag.i];o.x=x-drag.ox;o.y=y-drag.oy;}
+  draw();
+});
+cv.addEventListener('pointerup',()=>{ if(drag){drag=null;save();
+  if($('answer').classList.contains('show')) runFind(); if(S.mode==='edit') timeline(); }});
+
+/* pan/zoom schematico */
+let pan=null;
+cv.addEventListener('pointerdown',e=>{ if(!S.gmapReady&&!S.edit&&!S.placing){pan={x:e.clientX,y:e.clientY,c:{...S.center}};} });
+cv.addEventListener('pointermove',e=>{ if(pan){S.center={x:pan.c.x-(e.clientX-pan.x)/S.scale,y:pan.c.y+(e.clientY-pan.y)/S.scale};draw();} });
+addEventListener('pointerup',()=>pan=null);
+cv.addEventListener('wheel',e=>{ if(S.gmapReady) return; e.preventDefault();
+  S.scale=Math.max(3,Math.min(40,S.scale*(e.deltaY<0?1.12:0.89))); draw(); },{passive:false});
+
+/* editor: tempo */
+$('time').value=S.minutes; $('clock').textContent=hhmm(S.minutes);
+$('time').oninput=e=>{S.minutes=+e.target.value;$('clock').textContent=hhmm(S.minutes);draw();timeline();};
+$('date').value=S.y+'-'+String(S.m+1).padStart(2,'0')+'-'+String(S.d).padStart(2,'0');
+$('date').onchange=e=>{const[a,b,c]=e.target.value.split('-').map(Number);S.y=a;S.m=b-1;S.d=c;draw();timeline();};
+$('nowBtn').onclick=()=>{const n=new Date();S.y=n.getFullYear();S.m=n.getMonth();S.d=n.getDate();
+  S.minutes=n.getHours()*60+n.getMinutes();$('time').value=S.minutes;$('clock').textContent=hhmm(S.minutes);
+  $('date').value=S.y+'-'+String(S.m+1).padStart(2,'0')+'-'+String(S.d).padStart(2,'0');draw();timeline();};
+let play=null;
+$('play').onclick=()=>{
+  if(play){clearInterval(play);play=null;$('play').textContent='▶';return;}
+  $('play').textContent='⏸'; S.trail=false; $('tTrail').classList.remove('act');
+  play=setInterval(()=>{S.minutes=(S.minutes+8)%1440;$('time').value=S.minutes;
+    $('clock').textContent=hhmm(S.minutes);draw();timeline();},90);
+};
+
+/* lista oggetti */
+function renderObjs(){
+  const w=$('objlist'); if(!w) return; w.innerHTML='';
+  S.objects.forEach((o,i)=>{
+    const el=document.createElement('div'); el.className='obj';
+    const nm=o.type==='tree'?'🌳 Albero':o.type==='umbrella'?'⛱ Ombrellone':'🧱 Muro';
+    const sz=o.type==='wall'
+      ?'<div><small>Largh. m</small><input type="number" step=".5" value="'+o.w+'" data-k="w"></div><div><small>Prof. m</small><input type="number" step=".5" value="'+o.d+'" data-k="d"></div>'
+      :'<div><small>Raggio m</small><input type="number" step=".5" value="'+o.r+'" data-k="r"></div>';
+    el.innerHTML='<div class="hd"><span>'+nm+' '+(i+1)+'</span><button>✕</button></div>'+
+      '<div class="g"><div><small>Altezza m</small><input type="number" step=".5" value="'+o.h+'" data-k="h"></div>'+sz+'</div>';
+    el.querySelector('button').onclick=()=>{S.objects.splice(i,1);save();renderObjs();updCount();draw();timeline();};
+    el.querySelectorAll('input').forEach(inp=>inp.oninput=()=>{o[inp.dataset.k]=Math.max(.3,+inp.value||.3);save();draw();timeline();});
+    w.appendChild(el);
+  });
+  updCount();
+}
+function updCount(){
+  const n=S.objects.length;
+  $('objCount').textContent = n? n+' ostacol'+(n===1?'o':'i')+' sulla mappa · tocca ✏️ per spostarli'
+    : 'Nessun ostacolo: tocca una voce qui sopra e poi la mappa.';
+}
+
+/* posizione */
+function locate(pan){
+  if(!navigator.geolocation) return toast('Geolocalizzazione non disponibile');
+  navigator.geolocation.getCurrentPosition(p=>{
+    const la=p.coords.latitude, lo=p.coords.longitude;
+    if(!S.hasFix && !S.objects.length){ S.origin={lat:la,lon:lo}; S.me={x:0,y:0}; }
+    else { const [x,y]=toM(la,lo); S.me={x,y}; }
+    S.hasFix=true; save();
+    if(S.google) S.google.setCenter(toLL(S.me.x,S.me.y)); else S.center={...S.me};
+    draw(); timeline();
+  },()=>toast('Posizione non disponibile: trascina il puntino con ✏️'),{enableHighAccuracy:true,timeout:8000});
+}
+
+/* rete */
+function net(){
+  const el=$('net'), on=navigator.onLine;
+  el.textContent=on?'online':'offline'; el.className='pill '+(on?'on':'off');
+  if(on && S.key && !S.gmapReady && !window.google) loadGoogle();
+  if(!on && !S.gmapReady) fallback('Offline — mappa schematica');
+}
+addEventListener('online',net); addEventListener('offline',net);
+
+/* impostazioni */
+$('gear').onclick=()=>{
+  $('modalBox').innerHTML=`
+    <h3>Impostazioni</h3>
+    <p>Incolla qui la tua chiave <b>Google Maps JavaScript API</b> per vedere la vista satellitare.
+    Senza chiave, o senza rete, l'app usa la mappa schematica: <b>i calcoli del sole e delle ombre restano identici</b>.</p>
+    <input type="text" id="keyIn" placeholder="AIza…" value="${S.key.replace(/"/g,'')}">
+    <div class="row" style="margin-top:12px">
+      <button class="big" id="saveKey" style="margin:0">Salva</button>
+      <button class="big sec" id="closeM" style="margin:0">Chiudi</button>
+    </div>
+    <p style="margin-top:14px">Installa l'app: su Android menu ⋮ → <i>Installa app</i>; su iPhone Condividi → <i>Aggiungi a Home</i>.</p>
+    <p><button class="big sec" id="reset" style="margin:0">Cancella scena salvata</button></p>`;
+  $('modal').classList.add('show');
+  $('closeM').onclick=()=>$('modal').classList.remove('show');
+  $('saveKey').onclick=()=>{S.key=$('keyIn').value.trim();localStorage.setItem(LS+'.key',S.key);location.reload();};
+  $('reset').onclick=()=>{S.objects=[];save();renderObjs();updCount();S.best=null;$('answer').classList.remove('show');
+    $('modal').classList.remove('show');draw();};
+};
+$('modal').onclick=e=>{if(e.target.id==='modal')$('modal').classList.remove('show');};
+
+/* avvio */
+net(); loadGoogle(); resize(); renderObjs(); updCount(); timeline(); locate();
+setInterval(()=>{ if(!play && S.mode==='simple'){ const n=new Date();
+  S.minutes=n.getHours()*60+n.getMinutes(); draw(); } },60000);
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
